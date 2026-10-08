@@ -7,6 +7,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+// ==========================================
+// CONEXÃO COM POSTGRESQL
+// ==========================================
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -42,6 +46,7 @@ async function criarTabela() {
         console.log(erro.message);
 
     }
+
 }
 
 // ==========================================
@@ -112,8 +117,10 @@ app.post("/api/leituras", async (req, res) => {
         );
 
         res.status(201).json({
+
             mensagem: "Leitura salva com sucesso!",
             id: resultado.rows[0].id
+
         });
 
     } catch (erro) {
@@ -122,7 +129,9 @@ app.post("/api/leituras", async (req, res) => {
         console.log(erro.message);
 
         res.status(500).json({
+
             erro: "Erro ao salvar leitura"
+
         });
 
     }
@@ -151,7 +160,42 @@ app.get("/api/leituras", async (req, res) => {
         console.log(erro.message);
 
         res.status(500).json({
+
             erro: "Erro ao buscar leituras"
+
+        });
+
+    }
+
+});
+
+// ==========================================
+// LIMPAR HISTÓRICO
+// ==========================================
+
+app.delete("/api/leituras", async (req, res) => {
+
+    try {
+
+        await pool.query(
+            "TRUNCATE TABLE leituras RESTART IDENTITY"
+        );
+
+        res.json({
+
+            mensagem: "Histórico apagado com sucesso!"
+
+        });
+
+    } catch (erro) {
+
+        console.log("Erro ao limpar histórico:");
+        console.log(erro.message);
+
+        res.status(500).json({
+
+            erro: "Erro ao limpar histórico"
+
         });
 
     }
@@ -165,32 +209,5 @@ app.get("/api/leituras", async (req, res) => {
 app.listen(PORT, () => {
 
     console.log(`API rodando na porta ${PORT}`);
-
-    // ==========================================
-    // LIMPAR HISTÓRICO
-    // ==========================================
-
-    app.delete("/api/leituras", async (req, res) => {
-
-        try {
-
-            await pool.query("TRUNCATE TABLE leituras RESTART IDENTITY");
-
-            res.json({
-                mensagem: "Histórico apagado com sucesso!"
-            });
-
-        } catch (erro) {
-
-            console.log("Erro ao limpar histórico:");
-            console.log(erro.message);
-
-            res.status(500).json({
-                erro: "Erro ao limpar histórico"
-            });
-
-        }
-
-    });
 
 });
