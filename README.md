@@ -161,10 +161,6 @@ lixeira-api/
 ├── server.js
 │
 ├── lixeira_automatica - Wokwi ESP32, STM32, Arduino Simulator.html
-│
-├── PROTOTIPAGEM.zip
-│
-└── lixeira_api.zip
 ```
 
 ### Principais arquivos
