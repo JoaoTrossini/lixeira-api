@@ -46,7 +46,6 @@ async function criarTabela() {
         console.log(erro.message);
 
     }
-
 }
 
 // ==========================================
@@ -69,12 +68,374 @@ pool.connect()
     });
 
 // ==========================================
-// ROTA PRINCIPAL
+// PAINEL PRINCIPAL
 // ==========================================
 
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
 
-    res.send("API da Lixeira Inteligente funcionando!");
+    try {
+
+        const resultado = await pool.query(`
+            SELECT *
+            FROM leituras
+            ORDER BY id DESC
+        `);
+
+        let linhas = "";
+
+        resultado.rows.forEach((leitura) => {
+
+            linhas += `
+                <tr>
+                    <td>${leitura.id}</td>
+                    <td>${leitura.nivel}%</td>
+                    <td>${leitura.distancia_interna} cm</td>
+                    <td>${leitura.distancia_externa} cm</td>
+                    <td>${leitura.tampa}</td>
+                    <td>${leitura.coleta_solicitada ? "🚛 SIM" : "✅ NÃO"}</td>
+                    <td>${new Date(leitura.data_hora).toLocaleString("pt-BR")}</td>
+                </tr>
+            `;
+
+        });
+
+        if (linhas === "") {
+
+            linhas = `
+                <tr>
+                    <td colspan="7">
+                        Nenhuma leitura registrada.
+                    </td>
+                </tr>
+            `;
+
+        }
+
+        res.send(`
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Lixeira Inteligente</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+
+            margin: 0;
+
+            padding: 30px;
+
+            font-family: Arial, sans-serif;
+
+            background: #f2f2f2;
+
+            color: #222;
+
+        }
+
+        .container {
+
+            max-width: 1200px;
+
+            margin: auto;
+
+        }
+
+        .cabecalho {
+
+            background: white;
+
+            padding: 25px;
+
+            border-radius: 18px;
+
+            margin-bottom: 20px;
+
+            box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+
+        }
+
+        h1 {
+
+            margin-top: 0;
+
+        }
+
+        .botoes {
+
+            display: flex;
+
+            gap: 10px;
+
+            flex-wrap: wrap;
+
+            margin-top: 20px;
+
+        }
+
+        button {
+
+            border: none;
+
+            padding: 13px 20px;
+
+            border-radius: 10px;
+
+            cursor: pointer;
+
+            font-size: 15px;
+
+            font-weight: bold;
+
+        }
+
+        .atualizar {
+
+            background: #2196f3;
+
+            color: white;
+
+        }
+
+        .limpar {
+
+            background: #e53935;
+
+            color: white;
+
+        }
+
+        button:hover {
+
+            opacity: 0.85;
+
+        }
+
+        .tabela-container {
+
+            background: white;
+
+            border-radius: 18px;
+
+            padding: 20px;
+
+            overflow-x: auto;
+
+            box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+
+        }
+
+        table {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+            min-width: 850px;
+
+        }
+
+        th {
+
+            background: #222;
+
+            color: white;
+
+            padding: 13px;
+
+            text-align: center;
+
+        }
+
+        td {
+
+            padding: 12px;
+
+            text-align: center;
+
+            border-bottom: 1px solid #ddd;
+
+        }
+
+        tr:hover {
+
+            background: #f5f5f5;
+
+        }
+
+        .quantidade {
+
+            font-size: 18px;
+
+            font-weight: bold;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="cabecalho">
+
+        <h1>🗑️ Lixeira Inteligente</h1>
+
+        <p>
+
+            Painel de histórico das leituras da lixeira.
+
+        </p>
+
+        <p class="quantidade">
+
+            Total de leituras: ${resultado.rows.length}
+
+        </p>
+
+        <div class="botoes">
+
+            <button
+                class="atualizar"
+                onclick="location.reload()">
+
+                🔄 Atualizar
+
+            </button>
+
+            <button
+                class="limpar"
+                onclick="limparHistorico()">
+
+                🗑️ Limpar histórico
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="tabela-container">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Nível</th>
+
+                    <th>Distância interna</th>
+
+                    <th>Distância externa</th>
+
+                    <th>Tampa</th>
+
+                    <th>Coleta</th>
+
+                    <th>Data/Hora</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                ${linhas}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+async function limparHistorico() {
+
+    const confirmar = confirm(
+        "Tem certeza que deseja apagar todo o histórico?"
+    );
+
+    if (!confirmar) {
+
+        return;
+
+    }
+
+    try {
+
+        const resposta = await fetch(
+            "/api/leituras",
+            {
+                method: "DELETE"
+            }
+        );
+
+        const dados = await resposta.json();
+
+        if (resposta.ok) {
+
+            alert(dados.mensagem);
+
+            location.reload();
+
+        } else {
+
+            alert("Erro ao limpar histórico.");
+
+        }
+
+    } catch (erro) {
+
+        alert("Não foi possível conectar com a API.");
+
+        console.log(erro);
+
+    }
+
+}
+
+</script>
+
+</body>
+
+</html>
+
+        `);
+
+    } catch (erro) {
+
+        console.log("Erro ao carregar painel:");
+
+        console.log(erro.message);
+
+        res.status(500).send(
+            "Erro ao carregar painel."
+        );
+
+    }
 
 });
 
@@ -119,6 +480,7 @@ app.post("/api/leituras", async (req, res) => {
         res.status(201).json({
 
             mensagem: "Leitura salva com sucesso!",
+
             id: resultado.rows[0].id
 
         });
@@ -126,6 +488,7 @@ app.post("/api/leituras", async (req, res) => {
     } catch (erro) {
 
         console.log("Erro ao salvar leitura:");
+
         console.log(erro.message);
 
         res.status(500).json({
@@ -157,11 +520,12 @@ app.get("/api/leituras", async (req, res) => {
     } catch (erro) {
 
         console.log("Erro ao buscar leituras:");
+
         console.log(erro.message);
 
         res.status(500).json({
 
-            erro: "Erro ao buscar leituras"
+            erro: "Erro ao buscar leitura"
 
         });
 
@@ -190,6 +554,7 @@ app.delete("/api/leituras", async (req, res) => {
     } catch (erro) {
 
         console.log("Erro ao limpar histórico:");
+
         console.log(erro.message);
 
         res.status(500).json({
