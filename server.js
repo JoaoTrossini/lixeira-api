@@ -166,4 +166,31 @@ app.listen(PORT, () => {
 
     console.log(`API rodando na porta ${PORT}`);
 
+    // ==========================================
+    // LIMPAR HISTÓRICO
+    // ==========================================
+
+    app.delete("/api/leituras", async (req, res) => {
+
+        try {
+
+            await pool.query("TRUNCATE TABLE leituras RESTART IDENTITY");
+
+            res.json({
+                mensagem: "Histórico apagado com sucesso!"
+            });
+
+        } catch (erro) {
+
+            console.log("Erro ao limpar histórico:");
+            console.log(erro.message);
+
+            res.status(500).json({
+                erro: "Erro ao limpar histórico"
+            });
+
+        }
+
+    });
+
 });
