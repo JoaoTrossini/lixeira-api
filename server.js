@@ -39,6 +39,26 @@ app.get("/", (req, res) => {
     res.send("API da Lixeira Inteligente funcionando!");
 });
 
+app.get("/api/leituras", async (req, res) => {
+    try {
+        const resultado = await pool.query(`
+            SELECT *
+            FROM leituras
+            ORDER BY id DESC
+        `);
+
+        res.json(resultado.rows);
+
+    } catch (erro) {
+        console.log("Erro ao buscar leituras:");
+        console.log(erro.message);
+
+        res.status(500).json({
+            erro: "Erro ao buscar leituras"
+        });
+    }
+});
+
 app.post("/api/leituras", async (req, res) => {
 
     const {
