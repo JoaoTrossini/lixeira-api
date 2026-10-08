@@ -1,6 +1,4 @@
-```js
 const express = require("express");
-
 const { Pool } = require("pg");
 
 const app = express();
@@ -14,13 +12,11 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 
 const pool = new Pool({
-
     connectionString: process.env.DATABASE_URL,
 
     ssl: {
         rejectUnauthorized: false
     }
-
 });
 
 // ==========================================
@@ -31,73 +27,40 @@ async function criarTabela() {
 
     try {
 
-        // Cria a tabela caso ela ainda não exista
         await pool.query(`
-
             CREATE TABLE IF NOT EXISTS leituras (
-
                 id SERIAL PRIMARY KEY,
-
                 nivel INTEGER NOT NULL,
-
                 distancia_interna REAL NOT NULL,
-
                 distancia_externa REAL NOT NULL,
-
                 tampa VARCHAR(20) NOT NULL,
-
                 coleta_solicitada BOOLEAN NOT NULL,
-
-                data_hora TIMESTAMP
-
-                DEFAULT (
-
-                    CURRENT_TIMESTAMP
-                    AT TIME ZONE 'America/Sao_Paulo'
-
+                data_hora TIMESTAMP DEFAULT (
+                    CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo'
                 )
-
             )
-
         `);
 
-        // Corrige o padrão da coluna
-        // mesmo que a tabela já existisse
+        // Corrige o padrão da coluna caso
+        // a tabela já existisse anteriormente
+
         await pool.query(`
-
             ALTER TABLE leituras
-
             ALTER COLUMN data_hora
-
             SET DEFAULT (
-
-                CURRENT_TIMESTAMP
-                AT TIME ZONE 'America/Sao_Paulo'
-
+                CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo'
             )
-
         `);
 
-        console.log(
-            "Tabela leituras pronta!"
-        );
-
-        console.log(
-            "Fuso configurado: America/Sao_Paulo"
-        );
+        console.log("Tabela leituras pronta!");
+        console.log("Horário configurado para São Paulo.");
 
     } catch (erro) {
 
-        console.log(
-            "Erro ao criar/configurar tabela:"
-        );
-
-        console.log(
-            erro.message
-        );
+        console.log("Erro ao criar/configurar tabela:");
+        console.log(erro.message);
 
     }
-
 }
 
 // ==========================================
@@ -129,41 +92,28 @@ pool.connect()
     });
 
 // ==========================================
-// FORMATAR DATA E HORA
+// FORMATAR DATA/HORA
 // ==========================================
 
 function formatarDataHora(data) {
 
     if (!data) {
-
         return "";
-
     }
-
-    // PostgreSQL envia TIMESTAMP sem fuso.
-    // Pegamos os componentes diretamente para
-    // não ocorrer conversão automática de UTC.
 
     const dataTexto = String(data);
 
-    // Se vier no formato:
-    // 2026-10-08T08:30:00.000Z
-    // ou
-    // 2026-10-08 08:30:00
-
-    const partes = dataTexto
-        .replace("T", " ")
-        .replace("Z", "")
-        .split(" ");
+    const partes =
+        dataTexto
+            .replace("T", " ")
+            .replace("Z", "")
+            .split(" ");
 
     if (partes.length < 2) {
-
         return dataTexto;
-
     }
 
     const dataParte = partes[0];
-
     const horaParte = partes[1];
 
     const dataSeparada =
@@ -176,9 +126,7 @@ function formatarDataHora(data) {
         dataSeparada.length !== 3 ||
         horaSeparada.length < 2
     ) {
-
         return dataTexto;
-
     }
 
     const ano =
@@ -205,7 +153,6 @@ function formatarDataHora(data) {
         `${dia}/${mes}/${ano} ` +
         `${hora}:${minuto}:${segundo}`
     );
-
 }
 
 // ==========================================
@@ -218,13 +165,9 @@ app.get("/", async (req, res) => {
 
         const resultado =
             await pool.query(`
-
                 SELECT *
-
                 FROM leituras
-
                 ORDER BY id DESC
-
             `);
 
         let linhas = "";
@@ -237,7 +180,6 @@ app.get("/", async (req, res) => {
                 );
 
             linhas += `
-
                 <tr>
 
                     <td>
@@ -273,9 +215,7 @@ app.get("/", async (req, res) => {
                     </td>
 
                 </tr>
-
             `;
-
         });
 
         // ==================================
@@ -285,19 +225,14 @@ app.get("/", async (req, res) => {
         if (linhas === "") {
 
             linhas = `
-
                 <tr>
 
                     <td colspan="7">
-
                         Nenhuma leitura registrada.
-
                     </td>
 
                 </tr>
-
             `;
-
         }
 
         // ==================================
@@ -340,7 +275,6 @@ app.get("/", async (req, res) => {
             background: #f2f2f2;
 
             color: #222;
-
         }
 
         .container {
@@ -348,7 +282,6 @@ app.get("/", async (req, res) => {
             max-width: 1200px;
 
             margin: auto;
-
         }
 
         .cabecalho {
@@ -364,13 +297,10 @@ app.get("/", async (req, res) => {
             box-shadow:
                 0 4px 15px
                 rgba(0,0,0,0.10);
-
         }
 
         h1 {
-
             margin-top: 0;
-
         }
 
         .botoes {
@@ -382,7 +312,6 @@ app.get("/", async (req, res) => {
             flex-wrap: wrap;
 
             margin-top: 20px;
-
         }
 
         button {
@@ -398,7 +327,6 @@ app.get("/", async (req, res) => {
             font-size: 15px;
 
             font-weight: bold;
-
         }
 
         .atualizar {
@@ -406,7 +334,6 @@ app.get("/", async (req, res) => {
             background: #2196f3;
 
             color: white;
-
         }
 
         .limpar {
@@ -414,13 +341,11 @@ app.get("/", async (req, res) => {
             background: #e53935;
 
             color: white;
-
         }
 
         button:hover {
 
             opacity: 0.85;
-
         }
 
         .tabela-container {
@@ -436,7 +361,6 @@ app.get("/", async (req, res) => {
             box-shadow:
                 0 4px 15px
                 rgba(0,0,0,0.10);
-
         }
 
         table {
@@ -446,7 +370,6 @@ app.get("/", async (req, res) => {
             border-collapse: collapse;
 
             min-width: 850px;
-
         }
 
         th {
@@ -458,7 +381,6 @@ app.get("/", async (req, res) => {
             padding: 13px;
 
             text-align: center;
-
         }
 
         td {
@@ -469,13 +391,11 @@ app.get("/", async (req, res) => {
 
             border-bottom:
                 1px solid #ddd;
-
         }
 
         tr:hover {
 
             background: #f5f5f5;
-
         }
 
         .quantidade {
@@ -483,7 +403,6 @@ app.get("/", async (req, res) => {
             font-size: 18px;
 
             font-weight: bold;
-
         }
 
     </style>
@@ -594,9 +513,7 @@ async function limparHistorico() {
         );
 
     if (!confirmar) {
-
         return;
-
     }
 
     try {
@@ -625,7 +542,6 @@ async function limparHistorico() {
             alert(
                 "Erro ao limpar histórico."
             );
-
         }
 
     } catch (erro) {
@@ -635,9 +551,7 @@ async function limparHistorico() {
         );
 
         console.log(erro);
-
     }
-
 }
 
 </script>
@@ -661,9 +575,7 @@ async function limparHistorico() {
         res.status(500).send(
             "Erro ao carregar painel."
         );
-
     }
-
 });
 
 // ==========================================
@@ -677,62 +589,35 @@ app.post(
         try {
 
             const {
-
                 nivel,
-
                 distanciaInterna,
-
                 distanciaExterna,
-
                 tampa,
-
                 coletaSolicitada
-
             } = req.body;
 
             const resultado =
                 await pool.query(
-
                     `
-
                     INSERT INTO leituras
-
                     (
-
                         nivel,
-
                         distancia_interna,
-
                         distancia_externa,
-
                         tampa,
-
                         coleta_solicitada
-
                     )
-
                     VALUES
-
                     ($1, $2, $3, $4, $5)
-
                     RETURNING id
-
                     `,
-
                     [
-
                         nivel,
-
                         distanciaInterna,
-
                         distanciaExterna,
-
                         tampa,
-
                         coletaSolicitada
-
                     ]
-
                 );
 
             res.status(201).json({
@@ -761,11 +646,8 @@ app.post(
                     "Erro ao salvar leitura"
 
             });
-
         }
-
     }
-
 );
 
 // ==========================================
@@ -780,13 +662,9 @@ app.get(
 
             const resultado =
                 await pool.query(`
-
                     SELECT *
-
                     FROM leituras
-
                     ORDER BY id DESC
-
                 `);
 
             const leituras =
@@ -827,11 +705,8 @@ app.get(
                     "Erro ao buscar leitura"
 
             });
-
         }
-
     }
-
 );
 
 // ==========================================
@@ -871,11 +746,8 @@ app.delete(
                     "Erro ao limpar histórico"
 
             });
-
         }
-
     }
-
 );
 
 // ==========================================
@@ -892,4 +764,3 @@ app.listen(
 
     }
 );
-```
