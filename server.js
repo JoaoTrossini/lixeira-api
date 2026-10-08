@@ -1,4 +1,6 @@
+```js
 const express = require("express");
+
 const { Pool } = require("pg");
 
 const app = express();
@@ -12,40 +14,90 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 
 const pool = new Pool({
+
     connectionString: process.env.DATABASE_URL,
+
     ssl: {
         rejectUnauthorized: false
     }
+
 });
 
 // ==========================================
-// CRIAR TABELA
+// CRIAR E CONFIGURAR TABELA
 // ==========================================
 
 async function criarTabela() {
 
     try {
 
+        // Cria a tabela caso ela ainda não exista
         await pool.query(`
+
             CREATE TABLE IF NOT EXISTS leituras (
+
                 id SERIAL PRIMARY KEY,
+
                 nivel INTEGER NOT NULL,
+
                 distancia_interna REAL NOT NULL,
+
                 distancia_externa REAL NOT NULL,
+
                 tampa VARCHAR(20) NOT NULL,
+
                 coleta_solicitada BOOLEAN NOT NULL,
-                data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+                data_hora TIMESTAMP
+
+                DEFAULT (
+
+                    CURRENT_TIMESTAMP
+                    AT TIME ZONE 'America/Sao_Paulo'
+
+                )
+
             )
+
         `);
 
-        console.log("Tabela leituras pronta!");
+        // Corrige o padrão da coluna
+        // mesmo que a tabela já existisse
+        await pool.query(`
+
+            ALTER TABLE leituras
+
+            ALTER COLUMN data_hora
+
+            SET DEFAULT (
+
+                CURRENT_TIMESTAMP
+                AT TIME ZONE 'America/Sao_Paulo'
+
+            )
+
+        `);
+
+        console.log(
+            "Tabela leituras pronta!"
+        );
+
+        console.log(
+            "Fuso configurado: America/Sao_Paulo"
+        );
 
     } catch (erro) {
 
-        console.log("Erro ao criar tabela:");
-        console.log(erro.message);
+        console.log(
+            "Erro ao criar/configurar tabela:"
+        );
+
+        console.log(
+            erro.message
+        );
 
     }
+
 }
 
 // ==========================================
@@ -53,19 +105,108 @@ async function criarTabela() {
 // ==========================================
 
 pool.connect()
+
     .then(() => {
 
-        console.log("PostgreSQL conectado com sucesso!");
+        console.log(
+            "PostgreSQL conectado com sucesso!"
+        );
 
         criarTabela();
 
     })
+
     .catch((erro) => {
 
-        console.log("Erro ao conectar PostgreSQL:");
-        console.log(erro.message);
+        console.log(
+            "Erro ao conectar PostgreSQL:"
+        );
+
+        console.log(
+            erro.message
+        );
 
     });
+
+// ==========================================
+// FORMATAR DATA E HORA
+// ==========================================
+
+function formatarDataHora(data) {
+
+    if (!data) {
+
+        return "";
+
+    }
+
+    // PostgreSQL envia TIMESTAMP sem fuso.
+    // Pegamos os componentes diretamente para
+    // não ocorrer conversão automática de UTC.
+
+    const dataTexto = String(data);
+
+    // Se vier no formato:
+    // 2026-10-08T08:30:00.000Z
+    // ou
+    // 2026-10-08 08:30:00
+
+    const partes = dataTexto
+        .replace("T", " ")
+        .replace("Z", "")
+        .split(" ");
+
+    if (partes.length < 2) {
+
+        return dataTexto;
+
+    }
+
+    const dataParte = partes[0];
+
+    const horaParte = partes[1];
+
+    const dataSeparada =
+        dataParte.split("-");
+
+    const horaSeparada =
+        horaParte.split(":");
+
+    if (
+        dataSeparada.length !== 3 ||
+        horaSeparada.length < 2
+    ) {
+
+        return dataTexto;
+
+    }
+
+    const ano =
+        dataSeparada[0];
+
+    const mes =
+        dataSeparada[1];
+
+    const dia =
+        dataSeparada[2];
+
+    const hora =
+        horaSeparada[0];
+
+    const minuto =
+        horaSeparada[1];
+
+    const segundo =
+        horaSeparada[2]
+            ? horaSeparada[2].substring(0, 2)
+            : "00";
+
+    return (
+        `${dia}/${mes}/${ano} ` +
+        `${hora}:${minuto}:${segundo}`
+    );
+
+}
 
 // ==========================================
 // PAINEL PRINCIPAL
@@ -75,41 +216,93 @@ app.get("/", async (req, res) => {
 
     try {
 
-        const resultado = await pool.query(`
-            SELECT *
-            FROM leituras
-            ORDER BY id DESC
-        `);
+        const resultado =
+            await pool.query(`
+
+                SELECT *
+
+                FROM leituras
+
+                ORDER BY id DESC
+
+            `);
 
         let linhas = "";
 
         resultado.rows.forEach((leitura) => {
 
+            const dataHora =
+                formatarDataHora(
+                    leitura.data_hora
+                );
+
             linhas += `
+
                 <tr>
-                    <td>${leitura.id}</td>
-                    <td>${leitura.nivel}%</td>
-                    <td>${leitura.distancia_interna} cm</td>
-                    <td>${leitura.distancia_externa} cm</td>
-                    <td>${leitura.tampa}</td>
-                    <td>${leitura.coleta_solicitada ? "🚛 SIM" : "✅ NÃO"}</td>
-                    <td>${new Date(leitura.data_hora).toLocaleString("pt-BR")}</td>
+
+                    <td>
+                        ${leitura.id}
+                    </td>
+
+                    <td>
+                        ${leitura.nivel}%
+                    </td>
+
+                    <td>
+                        ${leitura.distancia_interna} cm
+                    </td>
+
+                    <td>
+                        ${leitura.distancia_externa} cm
+                    </td>
+
+                    <td>
+                        ${leitura.tampa}
+                    </td>
+
+                    <td>
+                        ${
+                            leitura.coleta_solicitada
+                                ? "🚛 SIM"
+                                : "✅ NÃO"
+                        }
+                    </td>
+
+                    <td>
+                        ${dataHora}
+                    </td>
+
                 </tr>
+
             `;
 
         });
 
+        // ==================================
+        // NENHUMA LEITURA
+        // ==================================
+
         if (linhas === "") {
 
             linhas = `
+
                 <tr>
+
                     <td colspan="7">
+
                         Nenhuma leitura registrada.
+
                     </td>
+
                 </tr>
+
             `;
 
         }
+
+        // ==================================
+        // HTML
+        // ==================================
 
         res.send(`
 
@@ -121,10 +314,14 @@ app.get("/", async (req, res) => {
 
     <meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <title>Lixeira Inteligente</title>
+    <title>
+        Lixeira Inteligente
+    </title>
 
     <style>
 
@@ -164,7 +361,9 @@ app.get("/", async (req, res) => {
 
             margin-bottom: 20px;
 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+            box-shadow:
+                0 4px 15px
+                rgba(0,0,0,0.10);
 
         }
 
@@ -234,7 +433,9 @@ app.get("/", async (req, res) => {
 
             overflow-x: auto;
 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+            box-shadow:
+                0 4px 15px
+                rgba(0,0,0,0.10);
 
         }
 
@@ -266,7 +467,8 @@ app.get("/", async (req, res) => {
 
             text-align: center;
 
-            border-bottom: 1px solid #ddd;
+            border-bottom:
+                1px solid #ddd;
 
         }
 
@@ -294,17 +496,19 @@ app.get("/", async (req, res) => {
 
     <div class="cabecalho">
 
-        <h1>🗑️ Lixeira Inteligente</h1>
+        <h1>
+            🗑️ Lixeira Inteligente
+        </h1>
 
         <p>
-
-            Painel de histórico das leituras da lixeira.
-
+            Painel de histórico das
+            leituras da lixeira.
         </p>
 
         <p class="quantidade">
 
-            Total de leituras: ${resultado.rows.length}
+            Total de leituras:
+            ${resultado.rows.length}
 
         </p>
 
@@ -312,7 +516,8 @@ app.get("/", async (req, res) => {
 
             <button
                 class="atualizar"
-                onclick="location.reload()">
+                onclick="location.reload()"
+            >
 
                 🔄 Atualizar
 
@@ -320,7 +525,8 @@ app.get("/", async (req, res) => {
 
             <button
                 class="limpar"
-                onclick="limparHistorico()">
+                onclick="limparHistorico()"
+            >
 
                 🗑️ Limpar histórico
 
@@ -329,7 +535,6 @@ app.get("/", async (req, res) => {
         </div>
 
     </div>
-
 
     <div class="tabela-container">
 
@@ -343,15 +548,25 @@ app.get("/", async (req, res) => {
 
                     <th>Nível</th>
 
-                    <th>Distância interna</th>
+                    <th>
+                        Distância interna
+                    </th>
 
-                    <th>Distância externa</th>
+                    <th>
+                        Distância externa
+                    </th>
 
-                    <th>Tampa</th>
+                    <th>
+                        Tampa
+                    </th>
 
-                    <th>Coleta</th>
+                    <th>
+                        Coleta
+                    </th>
 
-                    <th>Data/Hora</th>
+                    <th>
+                        Data/Hora
+                    </th>
 
                 </tr>
 
@@ -369,14 +584,14 @@ app.get("/", async (req, res) => {
 
 </div>
 
-
 <script>
 
 async function limparHistorico() {
 
-    const confirmar = confirm(
-        "Tem certeza que deseja apagar todo o histórico?"
-    );
+    const confirmar =
+        confirm(
+            "Tem certeza que deseja apagar todo o histórico?"
+        );
 
     if (!confirmar) {
 
@@ -386,30 +601,38 @@ async function limparHistorico() {
 
     try {
 
-        const resposta = await fetch(
-            "/api/leituras",
-            {
-                method: "DELETE"
-            }
-        );
+        const resposta =
+            await fetch(
+                "/api/leituras",
+                {
+                    method: "DELETE"
+                }
+            );
 
-        const dados = await resposta.json();
+        const dados =
+            await resposta.json();
 
         if (resposta.ok) {
 
-            alert(dados.mensagem);
+            alert(
+                dados.mensagem
+            );
 
             location.reload();
 
         } else {
 
-            alert("Erro ao limpar histórico.");
+            alert(
+                "Erro ao limpar histórico."
+            );
 
         }
 
     } catch (erro) {
 
-        alert("Não foi possível conectar com a API.");
+        alert(
+            "Não foi possível conectar com a API."
+        );
 
         console.log(erro);
 
@@ -427,9 +650,13 @@ async function limparHistorico() {
 
     } catch (erro) {
 
-        console.log("Erro ao carregar painel:");
+        console.log(
+            "Erro ao carregar painel:"
+        );
 
-        console.log(erro.message);
+        console.log(
+            erro.message
+        );
 
         res.status(500).send(
             "Erro ao carregar painel."
@@ -443,136 +670,226 @@ async function limparHistorico() {
 // SALVAR LEITURA
 // ==========================================
 
-app.post("/api/leituras", async (req, res) => {
+app.post(
+    "/api/leituras",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const {
-            nivel,
-            distanciaInterna,
-            distanciaExterna,
-            tampa,
-            coletaSolicitada
-        } = req.body;
+            const {
 
-        const resultado = await pool.query(
-            `
-            INSERT INTO leituras
-            (
                 nivel,
-                distancia_interna,
-                distancia_externa,
-                tampa,
-                coleta_solicitada
-            )
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id
-            `,
-            [
-                nivel,
+
                 distanciaInterna,
+
                 distanciaExterna,
+
                 tampa,
+
                 coletaSolicitada
-            ]
-        );
 
-        res.status(201).json({
+            } = req.body;
 
-            mensagem: "Leitura salva com sucesso!",
+            const resultado =
+                await pool.query(
 
-            id: resultado.rows[0].id
+                    `
 
-        });
+                    INSERT INTO leituras
 
-    } catch (erro) {
+                    (
 
-        console.log("Erro ao salvar leitura:");
+                        nivel,
 
-        console.log(erro.message);
+                        distancia_interna,
 
-        res.status(500).json({
+                        distancia_externa,
 
-            erro: "Erro ao salvar leitura"
+                        tampa,
 
-        });
+                        coleta_solicitada
+
+                    )
+
+                    VALUES
+
+                    ($1, $2, $3, $4, $5)
+
+                    RETURNING id
+
+                    `,
+
+                    [
+
+                        nivel,
+
+                        distanciaInterna,
+
+                        distanciaExterna,
+
+                        tampa,
+
+                        coletaSolicitada
+
+                    ]
+
+                );
+
+            res.status(201).json({
+
+                mensagem:
+                    "Leitura salva com sucesso!",
+
+                id:
+                    resultado.rows[0].id
+
+            });
+
+        } catch (erro) {
+
+            console.log(
+                "Erro ao salvar leitura:"
+            );
+
+            console.log(
+                erro.message
+            );
+
+            res.status(500).json({
+
+                erro:
+                    "Erro ao salvar leitura"
+
+            });
+
+        }
 
     }
 
-});
+);
 
 // ==========================================
 // BUSCAR LEITURAS
 // ==========================================
 
-app.get("/api/leituras", async (req, res) => {
+app.get(
+    "/api/leituras",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const resultado = await pool.query(`
-            SELECT *
-            FROM leituras
-            ORDER BY id DESC
-        `);
+            const resultado =
+                await pool.query(`
 
-        res.json(resultado.rows);
+                    SELECT *
 
-    } catch (erro) {
+                    FROM leituras
 
-        console.log("Erro ao buscar leituras:");
+                    ORDER BY id DESC
 
-        console.log(erro.message);
+                `);
 
-        res.status(500).json({
+            const leituras =
+                resultado.rows.map(
+                    (leitura) => {
 
-            erro: "Erro ao buscar leitura"
+                        return {
 
-        });
+                            ...leitura,
+
+                            data_hora:
+                                formatarDataHora(
+                                    leitura.data_hora
+                                )
+
+                        };
+
+                    }
+                );
+
+            res.json(
+                leituras
+            );
+
+        } catch (erro) {
+
+            console.log(
+                "Erro ao buscar leituras:"
+            );
+
+            console.log(
+                erro.message
+            );
+
+            res.status(500).json({
+
+                erro:
+                    "Erro ao buscar leitura"
+
+            });
+
+        }
 
     }
 
-});
+);
 
 // ==========================================
 // LIMPAR HISTÓRICO
 // ==========================================
 
-app.delete("/api/leituras", async (req, res) => {
+app.delete(
+    "/api/leituras",
+    async (req, res) => {
 
-    try {
+        try {
 
-        await pool.query(
-            "TRUNCATE TABLE leituras RESTART IDENTITY"
-        );
+            await pool.query(
+                "TRUNCATE TABLE leituras RESTART IDENTITY"
+            );
 
-        res.json({
+            res.json({
 
-            mensagem: "Histórico apagado com sucesso!"
+                mensagem:
+                    "Histórico apagado com sucesso!"
 
-        });
+            });
 
-    } catch (erro) {
+        } catch (erro) {
 
-        console.log("Erro ao limpar histórico:");
+            console.log(
+                "Erro ao limpar histórico:"
+            );
 
-        console.log(erro.message);
+            console.log(
+                erro.message
+            );
 
-        res.status(500).json({
+            res.status(500).json({
 
-            erro: "Erro ao limpar histórico"
+                erro:
+                    "Erro ao limpar histórico"
 
-        });
+            });
+
+        }
 
     }
 
-});
+);
 
 // ==========================================
 // INICIAR SERVIDOR
 // ==========================================
 
-app.listen(PORT, () => {
+app.listen(
+    PORT,
+    () => {
 
-    console.log(`API rodando na porta ${PORT}`);
+        console.log(
+            `API rodando na porta ${PORT}`
+        );
 
-});
+    }
+);
+```
